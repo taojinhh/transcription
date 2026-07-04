@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>전사(Transcription) 과정 시뮬레이션</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+    background: linear-gradient(160deg, #eef4fb 0%, #f6f0fb 100%);
+    color: #1f2937;
+    padding: 18px 14px 40px;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 {
+    text-align: center; font-size: 26px; color: #6d28d9;
+    margin-bottom: 4px;
+  }
+  .subtitle { text-align: center; color: #6b7280; font-size: 14px; margin-bottom: 16px; }
+
+  /* 4단계 개요 카드 */
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .step-card {
+    background: #fff; border: 2px solid #e5e7eb; border-radius: 12px;
+    padding: 10px 12px; font-size: 12.5px; color: #4b5563;
+    transition: all .25s; position: relative;
+  }
+  .step-card .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #d1d5db; color: #fff; font-weight: bold; font-size: 13px; margin-bottom: 4px;
+  }
+  .step-card.active {
+    border-color: #8b5cf6; background: #f5f3ff;
+    box-shadow: 0 4px 14px rgba(139,92,246,.22); transform: translateY(-2px);
+  }
+  .step-card.active .num { background: #8b5cf6; }
+  .step-card.done { border-color: #34d399; }
+  .step-card.done .num { background: #34d399; }
+
+  /* 무대 */
+  .stage-box {
+    background: #fff; border-radius: 16px; padding: 8px;
+    box-shadow: 0 6px 22px rgba(0,0,0,.08); margin-bottom: 14px;
+  }
+  svg { width: 100%; height: auto; display: block; }
+
+  /* 설명 + 컨트롤 */
+  .explain {
+    background: #fffdf5; border-left: 5px solid #f59e0b; border-radius: 8px;
+    padding: 12px 16px; font-size: 15px; margin-bottom: 14px; min-height: 58px;
+  }
+  .explain b { color: #b45309; }
+  .status { font-size: 13.5px; color: #7c3aed; margin-top: 6px; font-weight: bold; min-height: 18px; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; margin-bottom: 18px; }
+  button {
+    font-family: inherit; font-size: 15px; font-weight: bold;
+    border: none; border-radius: 10px; padding: 12px 22px; cursor: pointer;
+    transition: transform .12s, box-shadow .12s;
+  }
+  button:active { transform: scale(.96); }
+  #nextBtn { background: linear-gradient(135deg,#8b5cf6,#6d28d9); color: #fff; box-shadow: 0 4px 12px rgba(109,40,217,.35); }
+  #autoBtn { background: #ecfdf5; color: #059669; border: 2px solid #6ee7b7; }
+  #resetBtn { background: #f3f4f6; color: #4b5563; border: 2px solid #d1d5db; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* 하단 정보 */
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px){ .info-grid { grid-template-columns: 1fr; } .steps{ grid-template-columns:1fr 1fr; } h1{font-size:21px;} }
+  .panel { background: #fff; border-radius: 12px; padding: 14px 16px; box-shadow: 0 3px 12px rgba(0,0,0,.06); }
+  .panel h3 { font-size: 15px; color: #4c1d95; margin-bottom: 10px; }
+  .pair-rule { display: flex; align-items: center; gap: 8px; margin: 7px 0; font-size: 14px; }
+  .chip { display: inline-flex; width: 26px; height: 26px; border-radius: 6px; color: #fff; font-weight: bold; align-items: center; justify-content: center; font-size: 14px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 13.5px; }
+  .swatch { width: 18px; height: 18px; border-radius: 4px; }
+  .mrna-out { font-family: 'Consolas', monospace; font-size: 16px; letter-spacing: 2px; color: #059669; word-break: break-all; margin-top: 6px; font-weight: bold; }
+  .tip { font-size: 12.5px; color: #6b7280; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🧬 전사(Transcription) 과정 시뮬레이션</h1>
+  <p class="subtitle">DNA의 유전정보가 RNA로 옮겨지는 과정 — <b>[다음]</b> 버튼을 누르며 단계별로 관찰해 보세요.</p>
+
+  <!-- 4단계 개요 -->
+  <div class="steps" id="steps">
+    <div class="step-card" data-phase="1"><span class="num">1</span><br>RNA 중합효소가 프로모터에 결합한다.</div>
+    <div class="step-card" data-phase="2"><span class="num">2</span><br>DNA 이중나선이 풀리고 RNA 합성이 시작된다.</div>
+    <div class="step-card" data-phase="3"><span class="num">3</span><br>RNA가 5'→3'로 합성되고, 지나간 부분은 다시 이중나선을 이룬다.</div>
+    <div class="step-card" data-phase="4"><span class="num">4</span><br>전사가 끝나면 중합효소와 RNA가 DNA에서 분리된다.</div>
+  </div>
+
+  <div class="stage-box">
+    <svg id="stage" viewBox="0 0 1000 470" xmlns="http://www.w3.org/2000/svg" role="img"></svg>
+  </div>
+
+  <div class="explain">
+    <div id="explainText">준비 완료! <b>[① RNA 중합효소 결합]</b> 버튼을 눌러 전사를 시작하세요.</div>
+    <div class="status" id="statusText"></div>
+  </div>
+
+  <div class="controls">
+    <button id="nextBtn">① RNA 중합효소 결합 ▶</button>
+    <button id="autoBtn">⏵ 자동 재생</button>
+    <button id="resetBtn">↺ 처음부터</button>
+  </div>
+
+  <div class="info-grid">
+    <div class="panel">
+      <h3>🔑 염기 상보결합 규칙 (DNA 주형 → RNA)</h3>
+      <div class="pair-rule"><span class="chip" style="background:#2f78c4">A</span> DNA 아데닌 &nbsp;→&nbsp; <span class="chip" style="background:#8a56d6">U</span> RNA 유라실</div>
+      <div class="pair-rule"><span class="chip" style="background:#e0524e">T</span> DNA 티민 &nbsp;→&nbsp; <span class="chip" style="background:#2f78c4">A</span> RNA 아데닌</div>
+      <div class="pair-rule"><span class="chip" style="background:#e0972b">G</span> DNA 구아닌 &nbsp;→&nbsp; <span class="chip" style="background:#2fae6a">C</span> RNA 사이토신</div>
+      <div class="pair-rule"><span class="chip" style="background:#2fae6a">C</span> DNA 사이토신 &nbsp;→&nbsp; <span class="chip" style="background:#e0972b">G</span> RNA 구아닌</div>
+      <p class="tip">※ RNA에는 티민(T) 대신 <b>유라실(U)</b>이 쓰입니다. DNA의 A와 짝을 이룹니다.</p>
+    </div>
+    <div class="panel">
+      <h3>🧾 합성된 mRNA 서열</h3>
+      <div>DNA 주형 가닥 (5'→3' 방향으로 읽힘)에 상보적으로 하나씩 붙습니다.</div>
+      <div class="mrna-out" id="mrnaOut">아직 합성되지 않았습니다.</div>
+      <h3 style="margin-top:14px;">🎨 범례</h3>
+      <div class="legend-item"><span class="swatch" style="background:#93c5fd"></span> DNA 가닥 (파랑)</div>
+      <div class="legend-item"><span class="swatch" style="background:#34d399"></span> 합성 중인 RNA (초록)</div>
+      <div class="legend-item"><span class="swatch" style="background:#e5e7eb;border:1px solid #cbd5e1"></span> RNA 중합효소 (효소)</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const svg = document.getElementById('stage');
+  const SVGNS = "http://www.w3.org/2000/svg";
+
+  // ---- 서열 정의 ----------------------------------------------------
+  // 화면 왼쪽→오른쪽. 위 가닥 = 비주형(암호)가닥, 아래 가닥 = 주형(template)가닥.
+  const TOP = ['T','A','T','A', 'A','T','G','C','A','T','G','G','A','T','A','A', 'C','G','T']; // 코딩(비주형)
+  const BOT = TOP.map(dnaComplement);   // 주형 가닥
+  const GENE_START = 4;                 // 유전자(전사되는 구간) 시작 index
+  const GENE_LEN   = 12;                // 전사 길이
+  const N = TOP.length;
+
+  function dnaComplement(b){ return {A:'T',T:'A',G:'C',C:'G'}[b]; }
+  function templateToRNA(b){ return {A:'U',T:'A',G:'C',C:'G'}[b]; } // 주형 DNA → RNA 염기
+  const BASE_COLOR = { A:'#2f78c4', T:'#e0524e', G:'#e0972b', C:'#2fae6a', U:'#8a56d6' };
+  const BASE_NAME  = { A:'아데닌', T:'티민', G:'구아닌', C:'사이토신', U:'유라실' };
+
+  // ---- 좌표 ----------------------------------------------------------
+  const MX = 70, STEP = 46;
+  const Y_TOP = 150;   // 위 backbone
+  const Y_BOT = 250;   // 아래 backbone
+  const Y_RNA = 360;   // 합성된 mRNA 스트랜드
+  const x = i => MX + i*STEP;
+
+  // ---- 상태 ----------------------------------------------------------
+  // phase: 0 idle, 1 bound, 2 open, 3 elong, 4 done, 5 released
+  let phase = 0;
+  let rna = 0;          // 합성된 RNA 염기 수 (0..GENE_LEN)
+  let autoTimer = null;
+
+  const stepCards = [...document.querySelectorAll('.step-card')];
+  const nextBtn = document.getElementById('nextBtn');
+  const autoBtn = document.getElementById('autoBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const explainText = document.getElementById('explainText');
+  const statusText = document.getElementById('statusText');
+  const mrnaOut = document.getElementById('mrnaOut');
+
+  // ---- SVG helper ----------------------------------------------------
+  function el(tag, attrs, parent){
+    const e = document.createElementNS(SVGNS, tag);
+    for(const k in attrs) e.setAttribute(k, attrs[k]);
+    if(parent) parent.appendChild(e);
+    return e;
+  }
+  function txt(px, py, s, attrs, parent){
+    const t = el('text', Object.assign({x:px, y:py, 'text-anchor':'middle', 'dominant-baseline':'central'}, attrs||{}), parent);
+    t.textContent = s; return t;
+  }
+
+  // 폴리머라제가 위치한 유전자 index
+  function polyIndex(){
+    if(phase <= 1) return GENE_START;          // 프로모터 직후
+    if(phase === 2) return GENE_START;
+    if(phase === 3) return GENE_START + Math.max(0, rna-1);
+    return GENE_START + GENE_LEN - 1;          // done/released: 끝
+  }
+  // 열려 있는(단일가닥) 구간인가?  (폴리머라제 주변만 열림)
+  function isOpen(i){
+    if(phase < 2 || phase >= 4) return false;
+    const p = polyIndex();
+    return i >= p-1 && i <= p+1 && i >= GENE_START && i < GENE_START+GENE_LEN;
+  }
+
+  // ---- 렌더 ----------------------------------------------------------
+  function render(){
+    while(svg.firstChild) svg.removeChild(svg.firstChild);
+
+    // defs (폴리머라제 그라데이션)
+    const defs = el('defs', {}, svg);
+    const rg = el('radialGradient', {id:'polyGrad', cx:'50%', cy:'40%', r:'65%'}, defs);
+    el('stop', {offset:'0%', 'stop-color':'#ffffff'}, rg);
+    el('stop', {offset:'70%', 'stop-color':'#eef1f6'}, rg);
+    el('stop', {offset:'100%', 'stop-color':'#cdd5e0'}, rg);
+
+    // 전사 진행 방향 화살표 (하단)
+    if(phase >= 2 && phase <= 3){
+      const p = polyIndex();
+      el('line',{x1:x(GENE_START)-10, y1:430, x2:x(p)+30, y2:430, stroke:'#f9a8d4', 'stroke-width':10, 'stroke-linecap':'round'}, svg);
+      const ar = el('path',{d:`M ${x(p)+26} 424 L ${x(p)+44} 430 L ${x(p)+26} 436 Z`, fill:'#f472b6'}, svg);
+      txt((x(GENE_START)+x(p))/2, 448, '전사 진행 방향', {fill:'#db2777','font-size':13,'font-weight':'bold'}, svg);
+    }
+
+    // ---- DNA backbone (닫힌 구간은 이중나선, 열린 구간은 벌어짐) ----
+    // 각 위치별로 그린다
+    for(let i=0;i<N;i++){
+      const open = isOpen(i);
+      const inGene = i>=GENE_START && i<GENE_START+GENE_LEN;
+      const px = x(i);
+
+      // backbone y 위치 (열리면 위·아래로 벌어짐)
+      const topY = open ? Y_TOP-26 : Y_TOP;
+      const botY = open ? Y_BOT+26 : Y_BOT;
+
+      // 프로모터 색 표시(앞 4개)
+      const isProm = i < GENE_START;
+
+      // backbone 세그먼트 (다음 위치와 연결)
+      if(i < N-1){
+        const nOpen = isOpen(i+1);
+        const ntopY = nOpen ? Y_TOP-26 : Y_TOP;
+        const nbotY = nOpen ? Y_BOT+26 : Y_BOT;
+        el('line',{x1:px, y1:topY, x2:x(i+1), y2:ntopY, stroke: isProm? '#c084fc':'#60a5fa', 'stroke-width':9,'stroke-linecap':'round'}, svg);
+        el('line',{x1:px, y1:botY, x2:x(i+1), y2:nbotY, stroke: (i+1<GENE_START)? '#c084fc':'#3b82f6', 'stroke-width':9,'stroke-linecap':'round'}, svg);
+      }
+    }
+
+    // ---- 염기 + 상보결합 rung ----
+    for(let i=0;i<N;i++){
+      const open = isOpen(i);
+      const px = x(i);
+      const topY = open ? Y_TOP-26 : Y_TOP;
+      const botY = open ? Y_BOT+26 : Y_BOT;
+
+      // 위 가닥 염기
+      baseBox(px, topY+ (open? -16 : 18), TOP[i], svg, open? 0.85:1);
+      // 아래 가닥 염기
+      baseBox(px, botY+ (open? 16 : -18), BOT[i], svg, 1);
+
+      // 닫힌 구간: rung(수소결합 막대)
+      if(!open){
+        el('line',{x1:px, y1:Y_TOP+30, x2:px, y2:Y_BOT-30, stroke:'#cbd5e1','stroke-width':3, 'stroke-dasharray':'3 4'}, svg);
+      }
+    }
+
+    // ---- 합성된 mRNA (초록 스트랜드, 유전자 아래) ----
+    // phase 5(분리)에서는 아래의 '방출된 mRNA'만 그려 겹침을 방지
+    if(rna > 0 && phase < 5){
+      // 초록 backbone
+      let d = `M ${x(GENE_START)} ${Y_RNA}`;
+      for(let g=1; g<rna; g++) d += ` L ${x(GENE_START+g)} ${Y_RNA}`;
+      // 왼쪽 끝(5') 아래로 늘어지는 꼬리
+      const tailX = x(GENE_START);
+      el('path',{d:`M ${tailX} ${Y_RNA} C ${tailX-30} ${Y_RNA+18}, ${tailX-38} ${Y_RNA+2}, ${tailX-52} ${Y_RNA+26}`,
+                 fill:'none', stroke:'#34d399','stroke-width':7,'stroke-linecap':'round'}, svg);
+      txt(tailX-58, Y_RNA+20, "5'", {fill:'#059669','font-size':13,'font-weight':'bold'}, svg);
+      if(rna>1) el('path',{d, fill:'none', stroke:'#34d399','stroke-width':7,'stroke-linecap':'round'}, svg);
+
+      for(let g=0; g<rna; g++){
+        const gi = GENE_START+g;
+        const rBase = templateToRNA(BOT[gi]);
+        const newest = (g === rna-1) && (phase===3);
+        baseBox(x(gi), Y_RNA, rBase, svg, 1, newest);
+        // 가장 최근 붙은 염기는 주형과 짝 맺는 점선
+        if(newest){
+          el('line',{x1:x(gi), y1:Y_BOT+42, x2:x(gi), y2:Y_RNA-14, stroke:'#f472b6','stroke-width':3,'stroke-dasharray':'4 3'}, svg);
+        }
+      }
+    }
+
+    // ---- RNA 중합효소 (반투명 blob) ----
+    if(phase >= 1 && phase <= 4){
+      const p = polyIndex();
+      let cx = x(p);
+      if(phase===1) cx = x(GENE_START-1);   // 프로모터 위
+      const cy = (Y_TOP+Y_BOT)/2;
+      el('ellipse',{cx, cy, rx:78, ry:96, fill:'url(#polyGrad)', stroke:'#b9c2d0','stroke-width':2, opacity:0.9}, svg);
+      txt(cx, cy-70, 'RNA 중합효소', {fill:'#475569','font-size':13,'font-weight':'bold'}, svg);
+    }
+
+    // ---- 방출된 중합효소 + mRNA (released) ----
+    if(phase === 5){
+      // 떠다니는 효소
+      el('ellipse',{cx:880, cy:90, rx:70, ry:60, fill:'url(#polyGrad)', stroke:'#b9c2d0','stroke-width':2}, svg);
+      txt(880, 90, 'RNA 중합효소', {fill:'#475569','font-size':12,'font-weight':'bold'}, svg);
+      // 완성된 mRNA (아래 물결)
+      let d = `M ${x(GENE_START)-40} ${Y_RNA}`;
+      const seq = getRNAseq();
+      const startX = x(GENE_START)-40;
+      for(let g=0; g<seq.length; g++){
+        const gx = startX + g*40;
+        const gy = Y_RNA + (g%2===0? 0 : 24);
+        d += ` L ${gx} ${gy}`;
+        baseBox(gx, gy, seq[g], svg, 1);
+      }
+      el('path',{d, fill:'none', stroke:'#34d399','stroke-width':7,'stroke-linecap':'round'}, svg);
+      txt(startX-6, Y_RNA-24, "완성된 mRNA 5'", {fill:'#059669','font-size':13,'font-weight':'bold','text-anchor':'start'}, svg);
+    }
+
+    // ---- 라벨: 5'/3', 프로모터, 주형가닥 ----
+    txt(x(0)-30, Y_TOP, "5'", {fill:'#1e40af','font-size':14,'font-weight':'bold'}, svg);
+    txt(x(N-1)+30, Y_TOP, "3'", {fill:'#1e40af','font-size':14,'font-weight':'bold'}, svg);
+    txt(x(0)-30, Y_BOT, "3'", {fill:'#1e40af','font-size':14,'font-weight':'bold'}, svg);
+    txt(x(N-1)+30, Y_BOT, "5'", {fill:'#1e40af','font-size':14,'font-weight':'bold'}, svg);
+
+    // 프로모터 브래킷
+    const pStart = x(0)-14, pEnd = x(GENE_START-1)+14;
+    el('path',{d:`M ${pStart} 300 L ${pStart} 312 L ${pEnd} 312 L ${pEnd} 300`, fill:'none', stroke:'#9333ea','stroke-width':2.5}, svg);
+    txt((pStart+pEnd)/2, 328, '프로모터', {fill:'#7e22ce','font-size':13,'font-weight':'bold'}, svg);
+
+    // 주형가닥 라벨
+    txt(x(N-1)+8, Y_BOT+40, 'DNA 주형 가닥', {fill:'#1e3a8a','font-size':12.5,'text-anchor':'end'}, svg);
+
+    updateUI();
+  }
+
+  function baseBox(cx, cy, base, parent, opacity, glow){
+    const c = BASE_COLOR[base] || '#94a3b8';
+    if(glow){
+      el('rect',{x:cx-15, y:cy-15, width:30, height:30, rx:7, fill:c, opacity:0.35}, parent);
+    }
+    el('rect',{x:cx-12, y:cy-12, width:24, height:24, rx:6, fill:c, opacity: opacity!=null?opacity:1,
+               stroke: glow? '#065f46':'#ffffff', 'stroke-width': glow?2.5:1.5}, parent);
+    txt(cx, cy+1, base, {fill:'#fff','font-size':15,'font-weight':'bold'}, parent);
+  }
+
+  function getRNAseq(){
+    let s = '';
+    for(let g=0; g<rna; g++) s += templateToRNA(BOT[GENE_START+g]);
+    return s;
+  }
+
+  // ---- UI 텍스트 갱신 -------------------------------------------------
+  const EXPLAIN = {
+    0: '준비 완료! <b>[① RNA 중합효소 결합]</b> 버튼을 눌러 전사를 시작하세요.',
+    1: '<b>① 결합:</b> RNA 중합효소가 유전자 앞쪽의 <b>프로모터</b>에 달라붙었습니다. 프로모터는 전사가 시작되는 "출발 신호"예요.',
+    2: '<b>② 풀림:</b> DNA 이중나선이 풀리면서 두 가닥이 벌어졌습니다. 이제 아래쪽 <b>주형 가닥</b>을 본떠 RNA를 만들 준비가 됐어요.',
+    3: "<b>③ 합성:</b> 주형 가닥의 염기와 상보적인 리보뉴클레오타이드가 하나씩 붙습니다. RNA는 <b>5'→3'</b> 방향으로 자라고, 중합효소가 지나간 뒤 DNA는 다시 이중나선을 이룹니다.",
+    4: '<b>③ 합성 완료:</b> 유전자 끝(종결 지점)까지 전사됐습니다. <b>[④ 전사 종료 및 분리]</b>를 눌러 마무리하세요.',
+    5: '<b>④ 분리:</b> 전사가 끝나 RNA 중합효소와 완성된 <b>mRNA</b>가 DNA에서 떨어져 나왔습니다. 이 mRNA가 세포질로 나가 단백질 합성(번역)에 쓰입니다! 🎉'
+  };
+
+  function updateUI(){
+    // 개요 카드
+    const activePhase = phase===0?0 : (phase<=1?1 : phase===2?2 : phase===3?3 : phase===4?3 : 4);
+    stepCards.forEach((c,idx)=>{
+      const cardPhase = idx+1;
+      c.classList.remove('active','done');
+      if(cardPhase < activePhase) c.classList.add('done');
+      else if(cardPhase === activePhase) c.classList.add('active');
+    });
+
+    explainText.innerHTML = EXPLAIN[phase];
+
+    // 상태 (현재 붙는 염기)
+    if(phase===3 && rna>0){
+      const gi = GENE_START+rna-1;
+      const d = BOT[gi], r = templateToRNA(d);
+      statusText.textContent = `🔗 주형 염기 ${d}(${BASE_NAME[d]}) → RNA 염기 ${r}(${BASE_NAME[r]}) 결합!  (${rna}/${GENE_LEN})`;
+    } else if(phase===2){
+      statusText.textContent = '이제 [③ 리보뉴클레오타이드 추가]를 눌러 한 개씩 붙여 보세요.';
+    } else {
+      statusText.textContent = '';
+    }
+
+    // mRNA 출력
+    const seq = getRNAseq();
+    mrnaOut.textContent = seq ? `5'-${seq.split('').join(' ')}-3'` : '아직 합성되지 않았습니다.';
+
+    // 버튼 라벨
+    let label;
+    if(phase===0) label = '① RNA 중합효소 결합 ▶';
+    else if(phase===1) label = '② 이중나선 풀기 ▶';
+    else if(phase===2) label = '③ 리보뉴클레오타이드 추가 ▶';
+    else if(phase===3) label = `③ 리보뉴클레오타이드 추가 ▶ (${rna}/${GENE_LEN})`;
+    else if(phase===4) label = '④ 전사 종료 및 분리 ▶';
+    else label = '↺ 처음부터 다시';
+    nextBtn.textContent = label;
+  }
+
+  // ---- 단계 진행 -----------------------------------------------------
+  function next(){
+    if(phase===0){ phase=1; }
+    else if(phase===1){ phase=2; }
+    else if(phase===2){ phase=3; rna=1; }
+    else if(phase===3){
+      rna++;
+      if(rna>=GENE_LEN){ rna=GENE_LEN; phase=4; }
+    }
+    else if(phase===4){ phase=5; stopAuto(); }
+    else if(phase===5){ reset(); return; }
+    render();
+  }
+
+  function reset(){
+    stopAuto();
+    phase=0; rna=0;
+    render();
+  }
+
+  // ---- 자동 재생 -----------------------------------------------------
+  function startAuto(){
+    if(autoTimer) return;
+    if(phase===5) reset();
+    autoBtn.textContent = '⏸ 일시정지';
+    autoBtn.style.background = '#fef2f2'; autoBtn.style.color = '#dc2626'; autoBtn.style.borderColor='#fca5a5';
+    autoTimer = setInterval(()=>{
+      if(phase===5){ stopAuto(); return; }
+      next();
+    }, 650);
+  }
+  function stopAuto(){
+    if(autoTimer){ clearInterval(autoTimer); autoTimer=null; }
+    autoBtn.textContent = '⏵ 자동 재생';
+    autoBtn.style.background = '#ecfdf5'; autoBtn.style.color = '#059669'; autoBtn.style.borderColor='#6ee7b7';
+  }
+
+  nextBtn.addEventListener('click', ()=>{ stopAuto(); next(); });
+  autoBtn.addEventListener('click', ()=>{ autoTimer ? stopAuto() : startAuto(); });
+  resetBtn.addEventListener('click', reset);
+
+  render();
+})();
+</script>
+</body>
+</html>
